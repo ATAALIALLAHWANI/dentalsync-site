@@ -1,4 +1,5 @@
-import { CONTACT, DEMO_VIDEO_YOUTUBE_ID } from './config.js';
+import { CONTACT, DEMO_VIDEO_YOUTUBE_ID, PRICING } from './config.js';
+import { translate } from './i18n.js';
 
 /* ---------------- Header scroll + mobile menu ---------------- */
 const header = document.getElementById('siteHeader');
@@ -22,6 +23,84 @@ mobileMenu?.querySelectorAll('a').forEach((a) => {
     navToggle.setAttribute('aria-expanded', 'false');
   });
 });
+
+/* ---------------- Language toggle (English / Arabic) ---------------- */
+const LANG_KEY = 'dentalsync-lang';
+const langToggle = document.getElementById('langToggle');
+const langToggleMobile = document.getElementById('langToggleMobile');
+
+const westernDigits = '0123456789';
+const arabicIndicDigits = '٠١٢٣٤٥٦٧٨٩';
+function toArabicDigits(input) {
+  return String(input).replace(/[0-9]/g, (d) => arabicIndicDigits[westernDigits.indexOf(d)]);
+}
+
+function getSavedLang() {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'en' || saved === 'ar') return saved;
+  } catch (e) {
+    /* localStorage unavailable — fall through to default */
+  }
+  return 'en';
+}
+
+function saveLang(lang) {
+  try {
+    localStorage.setItem(LANG_KEY, lang);
+  } catch (e) {
+    /* ignore — non-critical */
+  }
+}
+
+let currentLang = 'en';
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  const isArabic = lang === 'ar';
+
+  document.documentElement.lang = lang;
+  document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+  document.body.classList.toggle('font-arabic', isArabic);
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (!key) return;
+    const text = translate(lang, key, el.textContent);
+    el.textContent = text;
+  });
+
+  // Lightbox / gallery full captions carry a separate translation key
+  // since they're stored as a data attribute, not element text.
+  document.querySelectorAll('[data-caption-key]').forEach((el) => {
+    const key = el.getAttribute('data-caption-key');
+    const full = translate(lang, key, el.getAttribute('data-caption'));
+    el.setAttribute('data-caption', full);
+  });
+
+  // Pricing amount/currency: keep the real number from config.js as the
+  // source of truth, just switch numeral style + currency label per language.
+  const amountEl = document.getElementById('pricingAmount');
+  const currencyEl = document.getElementById('pricingCurrency');
+  if (amountEl) amountEl.textContent = isArabic ? toArabicDigits(PRICING.price) : PRICING.price;
+  if (currencyEl) currencyEl.textContent = isArabic ? 'د.أ' : PRICING.currency;
+
+  document.title = isArabic
+    ? 'DentalSync | نظام إدارة عيادات الأسنان'
+    : 'DentalSync | Dental Clinic Management System';
+
+  // Re-render contact buttons so their static labels follow the language too.
+  buildContactActions();
+}
+
+function toggleLanguage() {
+  const next = currentLang === 'en' ? 'ar' : 'en';
+  saveLang(next);
+  applyLanguage(next);
+}
+
+langToggle?.addEventListener('click', toggleLanguage);
+langToggleMobile?.addEventListener('click', toggleLanguage);
 
 /* ---------------- Footer year ---------------- */
 const yearEl = document.getElementById('year');
@@ -145,6 +224,7 @@ function svgMail() {
 
 function buildContactActions() {
   if (!contactActions) return;
+  const lang = typeof currentLang === 'string' ? currentLang : 'en';
   const buttons = [];
 
   if (CONTACT.phone && CONTACT.phone.trim()) {
@@ -152,7 +232,7 @@ function buildContactActions() {
     buttons.push(`
       <a class="contact-btn primary" href="${telHref}">
         <span class="contact-btn-icon">${svgPhone()}</span>
-        <span><strong>Call or message us</strong><span>${CONTACT.phone}</span></span>
+        <span><strong>${translate(lang, 'contact_call_title', 'Call or message us')}</strong><span>${CONTACT.phone}</span></span>
       </a>
     `);
   }
@@ -161,7 +241,7 @@ function buildContactActions() {
     buttons.push(`
       <a class="contact-btn" href="${CONTACT.facebookUrl}" target="_blank" rel="noopener noreferrer">
         <span class="contact-btn-icon">${svgFacebook()}</span>
-        <span><strong>Message us on Facebook</strong><span>DentalSync Page</span></span>
+        <span><strong>${translate(lang, 'contact_fb_title', 'Message us on Facebook')}</strong><span>${translate(lang, 'contact_fb_sub', 'DentalSync Page')}</span></span>
       </a>
     `);
   }
@@ -170,17 +250,19 @@ function buildContactActions() {
     buttons.push(`
       <a class="contact-btn" href="mailto:${CONTACT.email}">
         <span class="contact-btn-icon">${svgMail()}</span>
-        <span><strong>Email us</strong><span>${CONTACT.email}</span></span>
+        <span><strong>${translate(lang, 'contact_email_title', 'Email us')}</strong><span>${CONTACT.email}</span></span>
       </a>
     `);
   }
 
   if (buttons.length === 0) {
-    contactConfigNote.hidden = false;
+    if (contactConfigNote) contactConfigNote.hidden = false;
+    contactActions.innerHTML = '';
     return;
   }
 
+  if (contactConfigNote) contactConfigNote.hidden = true;
   contactActions.innerHTML = buttons.join('');
 }
 
-buildContactActions();
+applyLanguage(getSavedLang());

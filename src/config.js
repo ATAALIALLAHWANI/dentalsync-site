@@ -27,5 +27,13 @@ export const SITE = {
   description:
     'DentalSync helps dental clinics manage patients, appointments, documentation, and daily workflow with smart voice-powered tools.',
   // Set this to your real deployed domain once you have one, for SEO tags.
-  url: 'https://dentalsync.vercel.app'
+  url: 'https://dentalsync-site.vercel.app'
+};
+
+// Verified pricing (confirmed 2026-09-23). Keep in sync with
+// claude/dentalsync_daily_asset_runbook.md rule 0.7 if this ever changes.
+export const PRICING = {
+  price: '29',
+  currency: 'JOD',
+  trialDays: 7
 };
